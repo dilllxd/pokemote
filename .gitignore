@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+tv-credentials.json
+tv-credentials.db
+tv-credentials.db-shm
+tv-credentials.db-wal
+*.log
+.DS_Store
+

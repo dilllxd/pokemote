@@ -1,0 +1,721 @@
+{
+  "info": {
+    "name": "LG WebOS TV API",
+    "description": "Complete REST API for controlling LG WebOS Smart TVs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "1"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "tvIp",
+      "value": "192.168.0.138",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Discovery & Connection",
+      "item": [
+        {
+          "name": "Get API Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Discover TVs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/discover",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "discover"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Connect to TV",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ip\": \"{{tvIp}}\",\n  \"secure\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/connect",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "connect"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Disconnect from TV",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/disconnect",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "disconnect"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Connection Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "status"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Volume Control",
+      "item": [
+        {
+          "name": "Volume Up",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/volume/up",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "volume", "up"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Volume Down",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/volume/down",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "volume", "down"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Volume",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"volume\": 50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/volume/set",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "volume", "set"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Volume",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/volume",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "volume"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mute",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mute\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/volume/mute",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "volume", "mute"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unmute",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mute\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/volume/mute",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "volume", "mute"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Media Control",
+      "item": [
+        {
+          "name": "Play",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/play",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "media", "play"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pause",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/pause",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "media", "pause"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Stop",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/stop",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "media", "stop"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rewind",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/rewind",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "media", "rewind"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Fast Forward",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/media/fastforward",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "media", "fastforward"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "System Control",
+      "item": [
+        {
+          "name": "Power Off",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/system/power-off",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "system", "power-off"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Screen Off",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/system/screen-off",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "system", "screen-off"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Screen On",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/system/screen-on",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "system", "screen-on"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get System Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/system/info",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "system", "info"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Hello from Postman! 🎉\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/system/notify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "system", "notify"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Application Control",
+      "item": [
+        {
+          "name": "List Apps",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apps",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apps"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current App",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apps/current",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apps", "current"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Launch YouTube",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appId\": \"youtube.leanback.v4\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/apps/launch",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apps", "launch"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Launch YouTube with Video",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appId\": \"youtube.leanback.v4\",\n  \"contentId\": \"v=dQw4w9WgXcQ\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/apps/launch",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apps", "launch"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Launch Netflix",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appId\": \"netflix\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/apps/launch",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apps", "launch"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Launch Amazon Prime",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appId\": \"amazon\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/apps/launch",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apps", "launch"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Channel Control",
+      "item": [
+        {
+          "name": "Channel Up",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/channels/up",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "channels", "up"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Channel Down",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/channels/down",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "channels", "down"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Channels",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/channels",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "channels"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current Channel",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/channels/current",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "channels", "current"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Channel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channelId\": \"0_1_1_0_0_1121_0\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/channels/set",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "channels", "set"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Input Control",
+      "item": [
+        {
+          "name": "List Inputs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/inputs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "inputs"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Switch to HDMI 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inputId\": \"HDMI_1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/inputs/set",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "inputs", "set"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Switch to HDMI 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inputId\": \"HDMI_2\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/inputs/set",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "inputs", "set"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Quick Actions",
+      "item": [
+        {
+          "name": "Demo Flow - Connect & Test",
+          "item": [
+            {
+              "name": "1. Discover TVs",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/discover",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "discover"]
+                }
+              }
+            },
+            {
+              "name": "2. Connect to TV",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// Wait 2 seconds for pairing",
+                      "setTimeout(function(){}, 2000);"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ip\": \"{{tvIp}}\",\n  \"secure\": true\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/connect",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "connect"]
+                }
+              }
+            },
+            {
+              "name": "3. Send Notification",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"message\": \"Connection successful! 🎉\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/system/notify",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "system", "notify"]
+                }
+              }
+            },
+            {
+              "name": "4. Get Volume",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/volume",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "volume"]
+                }
+              }
+            },
+            {
+              "name": "5. Volume Up",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/volume/up",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "volume", "up"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+

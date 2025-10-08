@@ -1,0 +1,220 @@
+{
+  "info": {
+    "name": "LG WebOS TV - Real-Time Subscriptions",
+    "description": "Server-Sent Events (SSE) endpoints to listen to real-time TV events.\n\n**How to use:**\n1. First connect to your TV using the main collection\n2. Open any subscription endpoint below\n3. Click Send - the request will stay open\n4. Use your physical TV remote to change volume, channel, or apps\n5. Watch real-time events stream in!\n\n**Note:** These are SSE (Server-Sent Events) endpoints that keep the connection open. Postman will show events as they arrive.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "📡 Subscriptions",
+      "item": [
+        {
+          "name": "Subscribe to Volume Changes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/subscribe/volume",
+              "host": ["{{base_url}}"],
+              "path": ["api", "subscribe", "volume"]
+            },
+            "description": "Subscribe to real-time volume and mute changes.\n\n**What you'll see:**\n- Volume changes when you press Vol+/Vol- on remote\n- Mute status when you press Mute button\n- Current volume level\n\n**Events:**\n```json\n{\n  \"type\": \"volume\",\n  \"volume\": 25,\n  \"muted\": false,\n  \"changed\": [\"volume\"],\n  \"timestamp\": \"2025-10-08T12:00:00.000Z\"\n}\n```\n\n**Try it:**\n1. Click Send (request stays open)\n2. Use your TV remote to change volume\n3. Watch events appear in real-time!"
+          },
+          "response": []
+        },
+        {
+          "name": "Subscribe to Channel Changes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/subscribe/channel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "subscribe", "channel"]
+            },
+            "description": "Subscribe to real-time channel changes.\n\n**What you'll see:**\n- Channel changes when you press CH+/CH- on remote\n- Channel info when you enter a channel number\n\n**Events:**\n```json\n{\n  \"type\": \"channel\",\n  \"channelId\": \"1_0_1_0_0_1234_0\",\n  \"channelName\": \"BBC One\",\n  \"channelNumber\": \"1\",\n  \"timestamp\": \"2025-10-08T12:00:00.000Z\"\n}\n```\n\n**Try it:**\n1. Click Send (request stays open)\n2. Change channels using your TV remote\n3. Watch events appear in real-time!"
+          },
+          "response": []
+        },
+        {
+          "name": "Subscribe to App Changes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/subscribe/app",
+              "host": ["{{base_url}}"],
+              "path": ["api", "subscribe", "app"]
+            },
+            "description": "Subscribe to real-time app/input changes.\n\n**What you'll see:**\n- App launches (YouTube, Netflix, etc.)\n- Input changes (HDMI 1, HDMI 2, etc.)\n- Foreground app changes\n\n**Events:**\n```json\n{\n  \"type\": \"app\",\n  \"appId\": \"youtube.leanback.v4\",\n  \"appName\": \"YouTube\",\n  \"windowId\": \"_Window_Id_1\",\n  \"timestamp\": \"2025-10-08T12:00:00.000Z\"\n}\n```\n\n**Try it:**\n1. Click Send (request stays open)\n2. Launch apps or switch inputs using your TV remote\n3. Watch events appear in real-time!"
+          },
+          "response": []
+        },
+        {
+          "name": "Subscribe to ALL Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/subscribe/all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "subscribe", "all"]
+            },
+            "description": "Subscribe to ALL real-time events at once.\n\n**What you'll see:**\n- Volume changes\n- Channel changes\n- App/input changes\n- Everything in one stream!\n\n**Events:**\nAll event types mixed together, each with a `type` field to identify them.\n\n**Try it:**\n1. Click Send (request stays open)\n2. Use your TV remote for anything\n3. Watch ALL events appear in real-time!"
+          },
+          "response": []
+        },
+        {
+          "name": "List Active Subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/subscriptions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "subscriptions"]
+            },
+            "description": "Get a list of currently active subscriptions and connected clients.\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"activeClients\": 2,\n  \"subscriptions\": [\n    {\n      \"subscriptionId\": \"abc123\",\n      \"uri\": \"ssap://audio/getVolume\"\n    }\n  ]\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Real-time event subscriptions using Server-Sent Events (SSE)"
+    },
+    {
+      "name": "📚 Examples & Guides",
+      "item": [
+        {
+          "name": "Example: Monitor Volume While Watching",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/subscribe/volume",
+              "host": ["{{base_url}}"],
+              "path": ["api", "subscribe", "volume"]
+            },
+            "description": "**Use Case:** Monitor volume changes while watching TV\n\n**Scenario:**\nYou want to log or display the current volume level in your app while users watch TV.\n\n**Steps:**\n1. Connect to TV using main collection\n2. Open this subscription\n3. Your app receives real-time volume updates\n4. Display volume bar in your UI\n5. User changes volume with remote → your app updates instantly!\n\n**Integration Example (JavaScript):**\n```javascript\nconst eventSource = new EventSource('http://localhost:3000/api/subscribe/volume');\n\neventSource.onmessage = (event) => {\n  const data = JSON.parse(event.data);\n  if (data.type === 'volume') {\n    console.log(`Volume: ${data.volume}, Muted: ${data.muted}`);\n    updateVolumeUI(data.volume, data.muted);\n  }\n};\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Example: Track User Viewing Habits",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/subscribe/app",
+              "host": ["{{base_url}}"],
+              "path": ["api", "subscribe", "app"]
+            },
+            "description": "**Use Case:** Track which apps/channels users watch\n\n**Scenario:**\nYou want to know when users switch between Netflix, YouTube, HDMI inputs, etc.\n\n**Steps:**\n1. Subscribe to app changes\n2. Log each app/input change with timestamp\n3. Analyze viewing patterns\n4. Build recommendations\n\n**Integration Example (JavaScript):**\n```javascript\nconst eventSource = new EventSource('http://localhost:3000/api/subscribe/app');\n\neventSource.onmessage = (event) => {\n  const data = JSON.parse(event.data);\n  if (data.type === 'app') {\n    console.log(`User switched to: ${data.appName} at ${data.timestamp}`);\n    logViewingActivity(data);\n  }\n};\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Example use cases and integration guides"
+    },
+    {
+      "name": "🔧 Integration Code Examples",
+      "item": [
+        {
+          "name": "JavaScript/Node.js Example",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "**JavaScript/Node.js Integration:**\n\n```javascript\n// Using EventSource (Browser)\nconst eventSource = new EventSource('http://localhost:3000/api/subscribe/all');\n\neventSource.onmessage = (event) => {\n  const data = JSON.parse(event.data);\n  console.log('TV Event:', data);\n  \n  switch(data.type) {\n    case 'volume':\n      console.log(`Volume: ${data.volume}, Muted: ${data.muted}`);\n      break;\n    case 'channel':\n      console.log(`Channel: ${data.channelName}`);\n      break;\n    case 'app':\n      console.log(`App: ${data.appName}`);\n      break;\n  }\n};\n\neventSource.onerror = (error) => {\n  console.error('Connection error:', error);\n};\n\n// Close connection when done\n// eventSource.close();\n```\n\n**Node.js (Server-side):**\n\n```javascript\nconst EventSource = require('eventsource');\n\nconst es = new EventSource('http://localhost:3000/api/subscribe/volume');\n\nes.onmessage = (event) => {\n  const data = JSON.parse(event.data);\n  console.log('Volume changed:', data);\n};\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Python Example",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "**Python Integration:**\n\n```python\nimport requests\nimport json\n\n# Using requests with stream=True\nurl = 'http://localhost:3000/api/subscribe/volume'\nresponse = requests.get(url, stream=True, headers={'Accept': 'text/event-stream'})\n\nfor line in response.iter_lines():\n    if line:\n        decoded_line = line.decode('utf-8')\n        if decoded_line.startswith('data: '):\n            data = json.loads(decoded_line[6:])\n            print(f\"Volume: {data.get('volume')}, Muted: {data.get('muted')}\")\n```\n\n**Using sseclient library:**\n\n```python\nfrom sseclient import SSEClient\nimport json\n\nurl = 'http://localhost:3000/api/subscribe/all'\nmessages = SSEClient(url)\n\nfor msg in messages:\n    if msg.data:\n        data = json.loads(msg.data)\n        print(f\"Event: {data['type']}\", data)\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "curl Example",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "**curl (Terminal):**\n\n```bash\n# Subscribe to volume changes\ncurl -N -H \"Accept: text/event-stream\" \\\n  http://localhost:3000/api/subscribe/volume\n\n# Subscribe to all events\ncurl -N -H \"Accept: text/event-stream\" \\\n  http://localhost:3000/api/subscribe/all\n```\n\nThe `-N` flag disables buffering so you see events immediately."
+          },
+          "response": []
+        }
+      ],
+      "description": "Code examples for integrating subscriptions in your app"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Ensure you're connected to TV first",
+          "// Run the 'Connect to TV' request from the main collection before using subscriptions"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}
