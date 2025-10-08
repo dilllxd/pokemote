@@ -4,6 +4,8 @@ import { discoverTVs } from "./tv/discovery.js";
 import { LGTVClient } from "./tv/client.js";
 import { TVCommands } from "./tv/commands.js";
 import { tvDatabase } from "./tv/database.js";
+import { ThinQOAuthClient } from "./search/thinq-oauth.js";
+import { ThinQSearchClient } from "./search/thinq-search.js";
 
 type Request = express.Request;
 type Response = express.Response;
@@ -27,6 +29,10 @@ app.use((req, res, next) => {
 let tvClient: LGTVClient | null = null;
 let tvCommands: TVCommands | null = null;
 let currentTVIP: string | null = null;
+
+// ThinQ Search clients
+const thinqOAuthClient = new ThinQOAuthClient();
+const thinqSearchClient = new ThinQSearchClient(thinqOAuthClient);
 
 // Active subscriptions for SSE clients
 const sseClients = new Map<string, Response>();
@@ -159,6 +165,13 @@ app.get("/", (req: Request, res: Response) => {
         content: "POST /api/search/content",
         apps: "GET /api/search/apps?q=query",
         channels: "GET /api/search/channels?q=query",
+      },
+      thinq: {
+        authenticate: "POST /api/thinq/authenticate",
+        configure: "POST /api/thinq/configure",
+        status: "GET /api/thinq/status",
+        search: "POST /api/thinq/search",
+        refresh: "POST /api/thinq/refresh-token",
       },
       credentials: {
         list: "GET /api/credentials",
@@ -949,6 +962,174 @@ app.get("/api/subscriptions", (req: Request, res: Response) => {
     activeClients: sseClients.size,
     subscriptions,
   });
+});
+
+// ==================== THINQ SEARCH API ====================
+
+/**
+ * POST /api/thinq/authenticate - Authenticate with LG ThinQ using username/password
+ * This will obtain both refresh_token and access_token automatically
+ */
+app.post("/api/thinq/authenticate", async (req: Request, res: Response) => {
+  try {
+    const { username, password } = await req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "username and password are required" 
+      });
+    }
+
+    // Authenticate with LG ThinQ
+    const tokens = await thinqOAuthClient.authenticate(username, password);
+
+    return res.json({
+      success: true,
+      message: "Authentication successful. Tokens saved.",
+      expiresIn: tokens.expires_in,
+      tokenType: tokens.token_type,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ 
+      success: false, 
+      error: err.message,
+      hint: "Make sure you're using your LG ThinQ account credentials (email/password)"
+    });
+  }
+});
+
+/**
+ * POST /api/thinq/configure - Configure ThinQ refresh token
+ */
+app.post("/api/thinq/configure", async (req: Request, res: Response) => {
+  try {
+    const { refreshToken } = await req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "refreshToken is required" 
+      });
+    }
+
+    // Save refresh token
+    thinqOAuthClient.saveRefreshToken(refreshToken);
+
+    // Try to get initial access token
+    try {
+      await thinqOAuthClient.refreshAccessToken(refreshToken);
+      return res.json({
+        success: true,
+        message: "ThinQ refresh token configured and access token obtained",
+      });
+    } catch (err: any) {
+      return res.json({
+        success: true,
+        message: "ThinQ refresh token saved (access token will be obtained on first search)",
+        warning: err.message,
+      });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/thinq/status - Check ThinQ configuration status
+ */
+app.get("/api/thinq/status", (req: Request, res: Response) => {
+  try {
+    const tokens = thinqOAuthClient.getStoredTokens();
+
+    if (!tokens) {
+      return res.json({
+        success: true,
+        configured: false,
+        message: "No ThinQ refresh token configured",
+      });
+    }
+
+    const isExpired = tvDatabase.isThinQTokenExpired();
+
+    return res.json({
+      success: true,
+      configured: true,
+      hasRefreshToken: !!tokens.refreshToken,
+      hasAccessToken: !!tokens.accessToken,
+      tokenExpired: isExpired,
+      expiresAt: tokens.expiresAt,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/thinq/refresh-token - Manually refresh access token
+ */
+app.post("/api/thinq/refresh-token", async (req: Request, res: Response) => {
+  try {
+    const tokens = thinqOAuthClient.getStoredTokens();
+
+    if (!tokens) {
+      return res.status(400).json({
+        success: false,
+        error: "No refresh token configured. Use /api/thinq/configure first",
+      });
+    }
+
+    const response = await thinqOAuthClient.refreshAccessToken(tokens.refreshToken);
+
+    return res.json({
+      success: true,
+      message: "Access token refreshed",
+      expiresIn: response.expires_in,
+      tokenType: response.token_type,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/thinq/search - Search for content via ThinQ API
+ */
+app.post("/api/thinq/search", async (req: Request, res: Response) => {
+  try {
+    const { query, startIndex, maxResults } = await req.body;
+
+    if (!query) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "query is required" 
+      });
+    }
+
+    // Check if ThinQ is configured
+    const tokens = thinqOAuthClient.getStoredTokens();
+    if (!tokens) {
+      return res.status(400).json({
+        success: false,
+        error: "ThinQ not configured. Use /api/thinq/configure to set refresh token first",
+      });
+    }
+
+    // Perform search
+    const results = await thinqSearchClient.search({
+      query,
+      startIndex: startIndex || 1,
+      maxResults: maxResults || 30,
+    });
+
+    return res.json({
+      success: true,
+      query,
+      results,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Start server

@@ -8,6 +8,7 @@ A modern REST API server to control LG WebOS Smart TVs, built with Node.js and E
 - 🔐 Secure WebSocket authentication with credential storage
 - 🎮 Full TV control via REST API
 - 📡 **Real-time event subscriptions** - Listen to volume, channel, and app changes!
+- 🔎 **ThinQ Content Search** - Search for movies, shows, and content across streaming services
 - ⚡ Built with Express for reliability
 - 📝 TypeScript for type safety
 
@@ -155,7 +156,74 @@ curl -X POST http://localhost:3000/api/system/notify \
 
 **📡 See [SUBSCRIPTIONS.md](./SUBSCRIPTIONS.md) for detailed guide and examples!**
 
+### ThinQ Content Search
+
+|| Method | Endpoint | Description |
+||--------|----------|-------------|
+|| POST | `/api/thinq/authenticate` | Authenticate with LG ThinQ (body: `{username, password}`) |
+|| POST | `/api/thinq/configure` | Configure ThinQ refresh token (body: `{refreshToken}`) |
+|| GET | `/api/thinq/status` | Check ThinQ configuration status |
+|| POST | `/api/thinq/search` | Search for content (body: `{query, startIndex?, maxResults?}`) |
+|| POST | `/api/thinq/refresh-token` | Manually refresh access token |
+
 ## Examples
+
+### ThinQ Content Search
+
+The ThinQ search feature allows you to search for movies, TV shows, and content across streaming services using LG's ThinQ API.
+
+#### Setup ThinQ Search
+
+You have two options to configure ThinQ authentication:
+
+**Option 1: Automatic Authentication (Recommended)**
+
+Authenticate with your LG ThinQ account credentials, and the server will automatically obtain and manage tokens:
+
+```bash
+# Authenticate with your LG ThinQ account
+curl -X POST http://localhost:3000/api/thinq/authenticate \
+  -H "Content-Type: application/json" \
+  -d '{"username": "your-email@example.com", "password": "your-password"}'
+
+# Check ThinQ status
+curl http://localhost:3000/api/thinq/status
+```
+
+**Option 2: Manual Refresh Token Configuration**
+
+If you already have a refresh token (from intercepting the ThinQ app's network traffic):
+
+```bash
+# Configure ThinQ with your refresh token
+curl -X POST http://localhost:3000/api/thinq/configure \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken": "your-refresh-token-here"}'
+```
+
+**Token Management:**
+- The server automatically refreshes access tokens when they expire
+- The refresh token is updated automatically when a new one is provided by the API
+- All tokens are securely stored in the SQLite database
+
+#### Search for Content
+
+```bash
+# Search for movies/shows
+curl -X POST http://localhost:3000/api/thinq/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Inception", "maxResults": 30}'
+
+# Search with pagination
+curl -X POST http://localhost:3000/api/thinq/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Marvel", "startIndex": 1, "maxResults": 50}'
+
+# Manually refresh access token if needed
+curl -X POST http://localhost:3000/api/thinq/refresh-token
+```
+
+The search results will include content from various streaming services available on your TV, making it easy to discover and play content.
 
 ### Listen to Real-Time Events
 
