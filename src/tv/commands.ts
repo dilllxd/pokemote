@@ -94,7 +94,7 @@ export class TVCommands {
   async listApps() {
     try {
       // Try to get all installed apps (requires READ_INSTALLED_APPS permission)
-      const result = await this.client.request("ssap://com.webos.applicationManager/listLaunchPoints");
+      const result = await this.client.request("ssap://com.webos.applicationManager/listApps");
       return result.launchPoints;
     } catch (err: any) {
       // Fallback: return common LG TV apps if permission denied
@@ -226,6 +226,41 @@ export class TVCommands {
 
   async sendEnter() {
     return this.client.request("ssap://com.webos.service.ime/sendEnterKey");
+  }
+
+  // ==================== REMOTE NAVIGATION ====================
+
+  async pressButton(button: "UP" | "DOWN" | "LEFT" | "RIGHT" | "ENTER" | "BACK" | "HOME" | "EXIT" | "RED" | "GREEN" | "YELLOW" | "BLUE") {
+    // LG webOS uses pointer input socket for remote control buttons
+    return this.client.sendButton(button);
+  }
+
+  async pressUp() {
+    return this.pressButton("UP");
+  }
+
+  async pressDown() {
+    return this.pressButton("DOWN");
+  }
+
+  async pressLeft() {
+    return this.pressButton("LEFT");
+  }
+
+  async pressRight() {
+    return this.pressButton("RIGHT");
+  }
+
+  async pressOk() {
+    return this.pressButton("ENTER");
+  }
+
+  async pressBack() {
+    return this.pressButton("BACK");
+  }
+
+  async pressHome() {
+    return this.pressButton("HOME");
   }
 
   // ==================== SUBSCRIPTIONS ====================

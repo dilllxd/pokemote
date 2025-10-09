@@ -43,15 +43,27 @@ curl http://localhost:3000/api/discover
 
 This will scan your network and return available LG TVs.
 
-### 4. Connect to TV
+### 4. Connect to TV (PIN Pairing)
+
+**Step 1: Initiate Pairing**
 
 ```bash
 curl -X POST http://localhost:3000/api/connect \
   -H "Content-Type: application/json" \
-  -d '{"ip": "192.168.1.100", "secure": true}'
+  -d '{"ip": "192.168.1.100"}'
 ```
 
-**Important:** When connecting for the first time, your TV will display a pairing prompt. Accept it on the TV screen. The API will automatically save the authentication token for future use.
+This will display a 6-digit PIN on your TV screen.
+
+**Step 2: Complete Pairing**
+
+```bash
+curl -X POST http://localhost:3000/api/pair \
+  -H "Content-Type: application/json" \
+  -d '{"pin": "123456"}'
+```
+
+Replace `123456` with the actual PIN shown on your TV. The API will automatically save the authentication token for future connections.
 
 ### 5. Control Your TV
 

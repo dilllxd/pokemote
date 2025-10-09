@@ -23,10 +23,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// Global TV client instance
+// Global TV client instance and state tracking by IP
 let tvClient: LGTVClient | null = null;
 let tvCommands: TVCommands | null = null;
 let currentTVIP: string | null = null;
+
+// Track pending pairing state by IP
+const pendingPairings = new Map<string, {
+  client: LGTVClient;
+  secure: boolean;
+}>();
 
 // Active subscriptions for SSE clients
 const sseClients = new Map<string, Response>();
@@ -52,7 +58,7 @@ async function autoReconnect(ip: string): Promise<boolean> {
     });
 
     await tvClient.connect();
-    await tvClient.register();
+    await tvClient.registerWithStoredKey();
     
     tvCommands = new TVCommands(tvClient);
     currentTVIP = ip;
@@ -154,6 +160,11 @@ app.get("/", (req: Request, res: Response) => {
         list: "GET /api/inputs",
         set: "POST /api/inputs/set",
       },
+      remote: "POST /api/remote (body: {action: 'up'|'down'|'left'|'right'|'ok'|'back'|'home'})",
+      pairing: {
+        connect: "POST /api/connect (body: {ip, secure?}) - Displays PIN on TV",
+        pair: "POST /api/pair (body: {pin}) - Completes pairing with PIN",
+      },
       credentials: {
         list: "GET /api/credentials",
         delete: "DELETE /api/credentials/:ip",
@@ -249,29 +260,96 @@ app.post("/api/connect", async (req: Request, res: Response) => {
       throw new Error(`Failed to connect to TV. Tried both secure and non-secure modes. Last error: ${connectionError?.message}`);
     }
 
-    // Register/Authenticate
-    console.log("🔐 Authenticating...");
-    const newClientKey = await tvClient.register();
+    // Initiate PIN-based pairing
+    const result = await tvClient.initiateRegistration();
+    
+    if (result.requiresPIN) {
+      pendingPairings.set(ip, {
+        client: tvClient,
+        secure: useSecure,
+      });
+      currentTVIP = ip;
+      
+      return res.json({
+        success: true,
+        message: "PIN displayed on TV. Enter PIN using /api/pair endpoint.",
+        ip,
+        secure: useSecure,
+        requiresPIN: true,
+        nextStep: "POST /api/pair with {pin: 'PIN_FROM_TV'}",
+      });
+    }
 
-    // Save credentials to database
-    tvDatabase.saveCredentials(ip, newClientKey, useSecure);
+    // Fallback for non-PIN pairing (PROMPT mode)
+    const newClientKey = tvClient.clientKey;
+    if (newClientKey) {
+      tvDatabase.saveCredentials(ip, newClientKey, useSecure);
+      tvCommands = new TVCommands(tvClient);
+      currentTVIP = ip;
+      
+      return res.json({
+        success: true,
+        message: "Connected and authenticated",
+        ip,
+        secure: useSecure,
+        clientKey: newClientKey,
+      });
+    }
 
-    // Initialize commands
-    tvCommands = new TVCommands(tvClient);
-    currentTVIP = ip;
-
-    return res.json({
-      success: true,
-      message: "Connected and authenticated",
-      ip,
-      secure: useSecure,
-      clientKey: newClientKey,
-      storedInDatabase: true,
-    });
+    throw new Error("Registration failed");
   } catch (err: any) {
     tvClient = null;
     tvCommands = null;
     currentTVIP = null;
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/pair", async (req: Request, res: Response) => {
+  try {
+    const { pin, ip } = await req.body;
+
+    if (!pin) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "PIN is required",
+        example: '{"pin": "123456"}'
+      });
+    }
+
+    const targetIP = ip || currentTVIP;
+    
+    if (!targetIP) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "No active pairing session. Call /api/connect first."
+      });
+    }
+
+    const pending = pendingPairings.get(targetIP);
+    
+    if (!pending) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `No pending pairing for ${targetIP}. Call /api/connect first.`
+      });
+    }
+
+    const clientKey = await pending.client.completePairing(pin);
+
+    tvDatabase.saveCredentials(targetIP, clientKey, pending.secure);
+    tvClient = pending.client;
+    tvCommands = new TVCommands(tvClient);
+    currentTVIP = targetIP;
+    pendingPairings.delete(targetIP);
+
+    return res.json({
+      success: true,
+      message: "Successfully paired with TV",
+      ip: targetIP,
+      clientKey,
+    });
+  } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -283,6 +361,10 @@ app.post("/api/disconnect", (req: Request, res: Response) => {
     tvCommands = null;
     currentTVIP = null;
   }
+  
+  // Clear any pending pairings
+  pendingPairings.clear();
+  
   return res.json({ success: true, message: "Disconnected" });
 });
 
@@ -655,6 +737,47 @@ app.post("/api/inputs/set", requireConnection, async (req: Request, res: Respons
     }
     await tvCommands!.setInput(inputId);
     return res.json({ success: true, message: `Switched to ${inputId}` });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== REMOTE NAVIGATION ====================
+
+app.post("/api/remote", requireConnection, async (req: Request, res: Response) => {
+  try {
+    const { action } = await req.body;
+    
+    if (!action) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "action is required",
+        validActions: ["up", "down", "left", "right", "ok", "back", "home"]
+      });
+    }
+
+    const actionMap: Record<string, () => Promise<any>> = {
+      up: () => tvCommands!.pressUp(),
+      down: () => tvCommands!.pressDown(),
+      left: () => tvCommands!.pressLeft(),
+      right: () => tvCommands!.pressRight(),
+      ok: () => tvCommands!.pressOk(),
+      back: () => tvCommands!.pressBack(),
+      home: () => tvCommands!.pressHome(),
+    };
+
+    const handler = actionMap[action.toLowerCase()];
+    
+    if (!handler) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Invalid action: ${action}`,
+        validActions: ["up", "down", "left", "right", "ok", "back", "home"]
+      });
+    }
+
+    await handler();
+    return res.json({ success: true, action, message: `Remote ${action}` });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }

@@ -19,7 +19,7 @@ export interface TVMessage {
 // Registration manifest from Python implementation
 const REGISTRATION_MANIFEST = {
   forcePairing: false,
-  pairingType: "PROMPT",
+  pairingType: "PIN",
   manifest: {
     manifestVersion: 1,
     appVersion: "1.1",
@@ -42,6 +42,7 @@ const REGISTRATION_MANIFEST = {
         "TEST_SECURE",
         "CONTROL_INPUT_TEXT",
         "CONTROL_MOUSE_AND_KEYBOARD",
+        "CONTROL_INPUT_POINTER",
         "READ_INSTALLED_APPS",
         "READ_LGE_SDX",
         "READ_NOTIFICATIONS",
@@ -58,60 +59,62 @@ const REGISTRATION_MANIFEST = {
       ],
       serial: "2f930e2d2cfe083771f68e4fe7bb07",
     },
-    permissions: [
-      "LAUNCH",
-      "LAUNCH_WEBAPP",
-      "APP_TO_APP",
-      "CLOSE",
-      "TEST_OPEN",
-      "TEST_PROTECTED",
-      "CONTROL_AUDIO",
-      "CONTROL_DISPLAY",
-      "CONTROL_INPUT_JOYSTICK",
-      "CONTROL_INPUT_MEDIA_RECORDING",
-      "CONTROL_INPUT_MEDIA_PLAYBACK",
-      "CONTROL_INPUT_TV",
-      "CONTROL_POWER",
-      "READ_APP_STATUS",
-      "READ_CURRENT_CHANNEL",
-      "READ_INPUT_DEVICE_LIST",
-      "READ_NETWORK_STATE",
-      "READ_RUNNING_APPS",
-      "READ_TV_CHANNEL_LIST",
-      "WRITE_NOTIFICATION_TOAST",
-      "READ_POWER_STATE",
-      "READ_COUNTRY_INFO",
-      "READ_SETTINGS",
-      "CONTROL_TV_SCREEN",
-      "CONTROL_TV_STANBY",
-      "CONTROL_FAVORITE_GROUP",
-      "CONTROL_USER_INFO",
-      "CHECK_BLUETOOTH_DEVICE",
-      "CONTROL_BLUETOOTH",
-      "CONTROL_TIMER_INFO",
-      "STB_INTERNAL_CONNECTION",
-      "CONTROL_RECORDING",
-      "READ_RECORDING_STATE",
-      "WRITE_RECORDING_LIST",
-      "READ_RECORDING_LIST",
-      "READ_RECORDING_SCHEDULE",
-      "WRITE_RECORDING_SCHEDULE",
-      "READ_STORAGE_DEVICE_LIST",
-      "READ_TV_PROGRAM_INFO",
-      "CONTROL_BOX_CHANNEL",
-      "READ_TV_ACR_AUTH_TOKEN",
-      "READ_TV_CONTENT_STATE",
-      "READ_TV_CURRENT_TIME",
-      "ADD_LAUNCHER_CHANNEL",
-      "SET_CHANNEL_SKIP",
-      "RELEASE_CHANNEL_SKIP",
-      "CONTROL_CHANNEL_BLOCK",
-      "DELETE_SELECT_CHANNEL",
-      "CONTROL_CHANNEL_GROUP",
-      "SCAN_TV_CHANNELS",
-      "CONTROL_TV_POWER",
-      "CONTROL_WOL",
-    ],
+      permissions: [
+        "LAUNCH",
+        "LAUNCH_WEBAPP",
+        "APP_TO_APP",
+        "CLOSE",
+        "TEST_OPEN",
+        "TEST_PROTECTED",
+        "CONTROL_AUDIO",
+        "CONTROL_DISPLAY",
+        "CONTROL_INPUT_JOYSTICK",
+        "CONTROL_INPUT_MEDIA_RECORDING",
+        "CONTROL_INPUT_MEDIA_PLAYBACK",
+        "CONTROL_INPUT_TV",
+        "CONTROL_INPUT_TEXT",
+        "CONTROL_MOUSE_AND_KEYBOARD",
+        "CONTROL_POWER",
+        "READ_APP_STATUS",
+        "READ_CURRENT_CHANNEL",
+        "READ_INPUT_DEVICE_LIST",
+        "READ_NETWORK_STATE",
+        "READ_RUNNING_APPS",
+        "READ_TV_CHANNEL_LIST",
+        "WRITE_NOTIFICATION_TOAST",
+        "READ_POWER_STATE",
+        "READ_COUNTRY_INFO",
+        "READ_SETTINGS",
+        "CONTROL_TV_SCREEN",
+        "CONTROL_TV_STANBY",
+        "CONTROL_FAVORITE_GROUP",
+        "CONTROL_USER_INFO",
+        "CHECK_BLUETOOTH_DEVICE",
+        "CONTROL_BLUETOOTH",
+        "CONTROL_TIMER_INFO",
+        "STB_INTERNAL_CONNECTION",
+        "CONTROL_RECORDING",
+        "READ_RECORDING_STATE",
+        "WRITE_RECORDING_LIST",
+        "READ_RECORDING_LIST",
+        "READ_RECORDING_SCHEDULE",
+        "WRITE_RECORDING_SCHEDULE",
+        "READ_STORAGE_DEVICE_LIST",
+        "READ_TV_PROGRAM_INFO",
+        "CONTROL_BOX_CHANNEL",
+        "READ_TV_ACR_AUTH_TOKEN",
+        "READ_TV_CONTENT_STATE",
+        "READ_TV_CURRENT_TIME",
+        "ADD_LAUNCHER_CHANNEL",
+        "SET_CHANNEL_SKIP",
+        "RELEASE_CHANNEL_SKIP",
+        "CONTROL_CHANNEL_BLOCK",
+        "DELETE_SELECT_CHANNEL",
+        "CONTROL_CHANNEL_GROUP",
+        "SCAN_TV_CHANNELS",
+        "CONTROL_TV_POWER",
+        "CONTROL_WOL",
+      ],
     signatures: [
       {
         signatureVersion: 1,
@@ -128,6 +131,9 @@ export class LGTVClient {
   private pendingRequests = new Map<string, (response: TVMessage) => void>();
   private subscriptions = new Map<string, (data: any) => void>();
   public clientKey: string | null = null;
+  private pointerSocket: any = null;
+  private pointerSocketPath: string | null = null;
+  private pendingRegistrationId: string | null = null;
 
   constructor(config: TVClientConfig) {
     this.config = config;
@@ -202,14 +208,15 @@ export class LGTVClient {
   }
 
   /**
-   * Register/authenticate with the TV
+   * Initiate registration with PIN pairing
+   * This displays a PIN on the TV screen that must be entered via completePairing()
+   * @returns Promise that resolves when PIN is displayed on TV
    */
-  async register(): Promise<string> {
+  async initiateRegistration(): Promise<{ requiresPIN: boolean }> {
     if (!this.ws) throw new Error("Not connected");
 
     const payload: any = { ...REGISTRATION_MANIFEST };
     
-    // Include client key if we have one (MUST be in payload, not message root!)
     if (this.clientKey) {
       payload["client-key"] = this.clientKey;
     }
@@ -220,17 +227,24 @@ export class LGTVClient {
       payload,
     };
 
+    this.pendingRegistrationId = message.id;
+
     return new Promise((resolve, reject) => {
       const checkResponse = (msg: TVMessage) => {
-        if (msg.type === "response" && msg.payload?.pairingType === "PROMPT") {
-          console.log("⚠️  Please accept the pairing request on your TV!");
-          // Keep waiting for registered message
+        if (msg.type === "response" && msg.payload?.pairingType === "PIN") {
+          console.log("🔑 PIN displayed on TV");
+          resolve({ requiresPIN: true });
+          // Keep handler active to receive "registered" message after PIN entry
+        } else if (msg.type === "response" && msg.payload?.pairingType === "PROMPT") {
+          console.log("⚠️  Please accept the pairing request on your TV");
         } else if (msg.type === "registered") {
           this.clientKey = msg.payload["client-key"];
           this.pendingRequests.delete(message.id);
-          resolve(this.clientKey);
+          this.pendingRegistrationId = null;
+          console.log("✅ Successfully paired with TV");
         } else if (msg.type === "error") {
           this.pendingRequests.delete(message.id);
+          this.pendingRegistrationId = null;
           reject(new Error(msg.error || "Registration failed"));
         }
       };
@@ -238,14 +252,128 @@ export class LGTVClient {
       this.pendingRequests.set(message.id, checkResponse);
       this.send(message);
 
-      // Timeout after 60 seconds
       setTimeout(() => {
-        if (this.pendingRequests.has(message.id)) {
+        if (this.pendingRequests.has(message.id) && !this.clientKey) {
           this.pendingRequests.delete(message.id);
+          this.pendingRegistrationId = null;
           reject(new Error("Registration timeout"));
         }
       }, 60000);
     });
+  }
+
+  /**
+   * Complete pairing by submitting the PIN displayed on TV
+   * Uses ssap://pairing/setPin to verify the PIN and receive client-key
+   * @param pin - The PIN code displayed on the TV screen
+   * @returns Promise that resolves with the client-key when pairing is complete
+   */
+  async completePairing(pin: string): Promise<string> {
+    if (!this.ws) throw new Error("Not connected");
+    if (!this.pendingRegistrationId) {
+      throw new Error("No pending registration. Call initiateRegistration() first.");
+    }
+
+    console.log(`🔑 Submitting PIN: ${pin}`);
+    
+    const message = {
+      type: "request",
+      id: randomUUID(),
+      uri: "ssap://pairing/setPin",
+      payload: {
+        "pin": pin
+      },
+    };
+
+    this.send(message);
+    
+    // Wait for the registration handler to receive "registered" message
+    return new Promise((resolve, reject) => {
+      const checkInterval = setInterval(() => {
+        if (!this.pendingRegistrationId) {
+          clearInterval(checkInterval);
+          if (this.clientKey) {
+            resolve(this.clientKey);
+          } else {
+            reject(new Error("Pairing failed"));
+          }
+        }
+      }, 100);
+      
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        if (this.pendingRegistrationId) {
+          reject(new Error("PIN entry timeout"));
+        }
+      }, 30000);
+    });
+  }
+
+  /**
+   * Register with TV using stored client-key (for reconnection)
+   * Sends registration manifest with permissions even when we have a client-key
+   * @returns Promise that resolves with the client-key when authenticated
+   */
+  async registerWithStoredKey(): Promise<string> {
+    if (!this.ws) throw new Error("Not connected");
+    if (!this.clientKey) throw new Error("No client-key available");
+
+    console.log("🔐 Authenticating with stored client-key...");
+
+    const payload: any = { ...REGISTRATION_MANIFEST };
+    payload["client-key"] = this.clientKey;
+    
+    const message = {
+      type: "register",
+      id: randomUUID(),
+      payload,
+    };
+
+    return new Promise((resolve, reject) => {
+      const checkResponse = (msg: TVMessage) => {
+        if (msg.type === "registered") {
+          console.log("✅ Authenticated with stored credentials");
+          this.pendingRequests.delete(message.id);
+          resolve(this.clientKey || "");
+        } else if (msg.type === "error") {
+          this.pendingRequests.delete(message.id);
+          reject(new Error(msg.error || "Authentication failed"));
+        }
+      };
+
+      this.pendingRequests.set(message.id, checkResponse);
+      this.send(message);
+
+      setTimeout(() => {
+        if (this.pendingRequests.has(message.id)) {
+          this.pendingRequests.delete(message.id);
+          reject(new Error("Authentication timeout"));
+        }
+      }, 10000);
+    });
+  }
+
+  /**
+   * Register/authenticate with the TV (legacy method for backward compatibility)
+   * @param pin - Optional 6-digit PIN code shown on TV screen
+   */
+  async register(pin?: string): Promise<string> {
+    if (pin) {
+      return this.completePairing(pin);
+    }
+    
+    // If we have a client-key, just authenticate with it
+    if (this.clientKey) {
+      return this.registerWithStoredKey();
+    }
+    
+    const result = await this.initiateRegistration();
+    if (result.requiresPIN) {
+      throw new Error("PIN required. Use completePairing() or call /api/pair endpoint.");
+    }
+    
+    // If no PIN required, should have been registered already
+    return this.clientKey || "";
   }
 
   /**
@@ -321,9 +449,75 @@ export class LGTVClient {
   }
 
   /**
+   * Get pointer input socket for remote control buttons
+   */
+  async getPointerInputSocket(): Promise<string> {
+    if (this.pointerSocketPath && this.pointerSocket) {
+      return this.pointerSocketPath;
+    }
+
+    const response = await this.request("ssap://com.webos.service.networkinput/getPointerInputSocket");
+    
+    if (!response.socketPath) {
+      throw new Error("No pointer socket path returned");
+    }
+
+    this.pointerSocketPath = response.socketPath;
+    
+    // Connect to pointer input socket
+    const wsOptions: any = {};
+    if (this.config.secure) {
+      wsOptions.agent = new https.Agent({
+        rejectUnauthorized: false,
+      });
+    }
+
+    return new Promise((resolve, reject) => {
+      this.pointerSocket = new WebSocket(response.socketPath, wsOptions);
+      
+      this.pointerSocket.on('open', () => {
+        console.log("✅ Pointer input socket connected");
+        resolve(response.socketPath);
+      });
+
+      this.pointerSocket.on('error', (err: Error) => {
+        console.error("❌ Pointer socket error:", err.message);
+        reject(err);
+      });
+
+      this.pointerSocket.on('close', () => {
+        console.log("Pointer socket closed");
+        this.pointerSocket = null;
+        this.pointerSocketPath = null;
+      });
+    });
+  }
+
+  /**
+   * Send button press through pointer input socket
+   */
+  async sendButton(button: string): Promise<void> {
+    await this.getPointerInputSocket();
+    
+    if (!this.pointerSocket || this.pointerSocket.readyState !== WebSocket.OPEN) {
+      throw new Error("Pointer socket not connected");
+    }
+
+    // Button message format for webOS
+    const message = `type:button\nname:${button}\n\n`;
+    this.pointerSocket.send(message);
+    console.log(`📤 Button pressed: ${button}`);
+  }
+
+  /**
    * Close connection
    */
   disconnect(): void {
+    if (this.pointerSocket) {
+      this.pointerSocket.close();
+      this.pointerSocket = null;
+      this.pointerSocketPath = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -348,6 +542,7 @@ export class LGTVClient {
   private handleMessage(data: string): void {
     try {
       const message: TVMessage = JSON.parse(data);
+      console.log(data)
       console.log("📩 TV Message:", JSON.stringify(message));
 
       // Check if this is a response to a pending request
