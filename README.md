@@ -8,7 +8,7 @@ A modern REST API server to control LG WebOS Smart TVs, built with Node.js and E
 - 🔐 Secure WebSocket authentication with credential storage
 - 🎮 Full TV control via REST API
 - 📡 **Real-time event subscriptions** - Listen to volume, channel, and app changes!
-- 🔎 **ThinQ Content Search** - Search for movies, shows, and content across streaming services
+- 🔎 **webOS Unified Search** - Search content across ALL installed streaming apps (Netflix, Disney+, etc.)
 - ⚡ Built with Express for reliability
 - 📝 TypeScript for type safety
 
@@ -48,7 +48,7 @@ This will scan your network and return available LG TVs.
 ```bash
 curl -X POST http://localhost:3000/api/connect \
   -H "Content-Type: application/json" \
-  -d '{"ip": "192.168.0.138", "secure": true}'
+  -d '{"ip": "192.168.1.100", "secure": true}'
 ```
 
 **Important:** When connecting for the first time, your TV will display a pairing prompt. Accept it on the TV screen. The API will automatically save the authentication token for future use.
@@ -156,74 +156,133 @@ curl -X POST http://localhost:3000/api/system/notify \
 
 **📡 See [SUBSCRIPTIONS.md](./SUBSCRIPTIONS.md) for detailed guide and examples!**
 
-### ThinQ Content Search
+### webOS Unified Search
 
-|| Method | Endpoint | Description |
-||--------|----------|-------------|
-|| POST | `/api/thinq/authenticate` | Authenticate with LG ThinQ (body: `{username, password}`) |
-|| POST | `/api/thinq/configure` | Configure ThinQ refresh token (body: `{refreshToken}`) |
-|| GET | `/api/thinq/status` | Check ThinQ configuration status |
-|| POST | `/api/thinq/search` | Search for content (body: `{query, startIndex?, maxResults?}`) |
-|| POST | `/api/thinq/refresh-token` | Manually refresh access token |
+Search content across ALL installed streaming apps using webOS's native search service.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/search/content` | Search content in Netflix, Disney+, etc. (body: `{query}`) |
+| POST | `/api/search/launch-home` | **Launch Home app with search** - Opens TV's search UI (body: `{query}`) |
+| POST | `/api/search/launch-result` | Launch specific content (body: `{appId, contentId, params}`) |
+| GET | `/api/search/suggestions?q=query` | Get search suggestions for partial queries |
+
+**No authentication needed** - Works directly through TV connection!
 
 ## Examples
 
-### ThinQ Content Search
+### webOS Unified Search
 
-The ThinQ search feature allows you to search for movies, TV shows, and content across streaming services using LG's ThinQ API.
+The webOS Unified Search feature lets you search for movies, TV shows, and content across **all your installed streaming apps** (Netflix, Disney+, Prime Video, etc.) using webOS's native search service.
 
-#### Setup ThinQ Search
+**No authentication required** - Just connect to your TV!
 
-You have two options to configure ThinQ authentication:
+#### Launch TV Search (Recommended!)
 
-**Option 1: Automatic Authentication (Recommended)**
-
-Authenticate with your LG ThinQ account credentials, and the server will automatically obtain and manage tokens:
+The easiest way - opens the TV's native search interface:
 
 ```bash
-# Authenticate with your LG ThinQ account
-curl -X POST http://localhost:3000/api/thinq/authenticate \
+# Launch Home app with search for "Avengers"
+curl -X POST http://localhost:3000/api/search/launch-home \
   -H "Content-Type: application/json" \
-  -d '{"username": "your-email@example.com", "password": "your-password"}'
+  -d '{"query": "Avengers"}'
 
-# Check ThinQ status
-curl http://localhost:3000/api/thinq/status
+# This opens the TV's Home app with "Avengers" search populated
+# You'll see search results on your TV screen instantly!
 ```
 
-**Option 2: Manual Refresh Token Configuration**
+#### Search via API
 
-If you already have a refresh token (from intercepting the ThinQ app's network traffic):
+Search programmatically and get results as JSON:
 
 ```bash
-# Configure ThinQ with your refresh token
-curl -X POST http://localhost:3000/api/thinq/configure \
+# Search for "Avengers" across all installed streaming apps
+curl -X POST http://localhost:3000/api/search/content \
   -H "Content-Type: application/json" \
-  -d '{"refreshToken": "your-refresh-token-here"}'
+  -d '{"query": "Avengers"}'
+
+# Search for a TV show
+curl -X POST http://localhost:3000/api/search/content \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Breaking Bad"}'
 ```
 
-**Token Management:**
-- The server automatically refreshes access tokens when they expire
-- The refresh token is updated automatically when a new one is provided by the API
-- All tokens are securely stored in the SQLite database
+**Response:**
+```json
+{
+  "success": true,
+  "query": "Avengers",
+  "results": {
+    "apps": [
+      {
+        "appId": "netflix",
+        "title": "Netflix",
+        "results": [
+          {
+            "title": "Avengers: Endgame",
+            "uri": "...",
+            "thumbnail": "..."
+          }
+        ]
+      },
+      {
+        "appId": "com.disney.disneyplus-prod",
+        "title": "Disney+",
+        "results": [
+          {
+            "title": "Avengers: Infinity War",
+            "uri": "...",
+            "thumbnail": "..."
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
-#### Search for Content
+#### Get Search Suggestions
 
 ```bash
-# Search for movies/shows
-curl -X POST http://localhost:3000/api/thinq/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Inception", "maxResults": 30}'
-
-# Search with pagination
-curl -X POST http://localhost:3000/api/thinq/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Marvel", "startIndex": 1, "maxResults": 50}'
-
-# Manually refresh access token if needed
-curl -X POST http://localhost:3000/api/thinq/refresh-token
+# Get suggestions for partial query
+curl "http://localhost:3000/api/search/suggestions?q=Aven"
 ```
 
-The search results will include content from various streaming services available on your TV, making it easy to discover and play content.
+#### Launch Specific Content (Advanced)
+
+If your TV returns structured search results with app and content IDs, you can launch specific content:
+
+```bash
+# Launch Netflix with specific content ID
+curl -X POST http://localhost:3000/api/search/launch-result \
+  -H "Content-Type: application/json" \
+  -d '{
+    "appId": "netflix",
+    "contentId": "80057281"
+  }'
+
+# Launch Disney+ with content and params
+curl -X POST http://localhost:3000/api/search/launch-result \
+  -H "Content-Type: application/json" \
+  -d '{
+    "appId": "com.disney.disneyplus-prod",
+    "contentId": "series/12345",
+    "params": {"season": 1, "episode": 1}
+  }'
+```
+
+**How it works:**
+- **Method 1 (Recommended):** Launch Home app with search - Opens TV's native search UI
+  - Your TV performs the search and shows results visually
+  - User can browse and select content directly on TV
+  - Most reliable method across all TV models
+  
+- **Method 2:** API search (if supported) - Returns structured JSON results  
+  - Some TV models return search results with `appId` and `contentId`
+  - These can be used to programmatically launch specific content
+  - Falls back to Method 1 if not supported
+
+**Note:** Most consumer LG TVs use Method 1 (visual search). Structured API results are typically available on developer/commercial models.
 
 ### Listen to Real-Time Events
 
@@ -284,7 +343,7 @@ Newer LG TVs require secure WebSocket connections (wss://:3001). Older models us
 
 ```json
 {
-  "ip": "192.168.0.138",
+  "ip": "192.168.1.100",
   "secure": true  // Use true for newer TVs, false for older ones
 }
 ```
@@ -295,7 +354,7 @@ Authentication credentials are automatically saved to `tv-credentials.json` in t
 
 ```json
 {
-  "ip": "192.168.0.138",
+  "ip": "192.168.1.100",
   "clientKey": "authentication-token-from-tv",
   "secure": true
 }

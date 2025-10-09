@@ -38,17 +38,6 @@ class TVDatabase {
       )
     `);
 
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS thinq_tokens (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        refresh_token TEXT NOT NULL,
-        access_token TEXT,
-        token_expires_at TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `);
-
     console.log("✅ Database initialized");
   }
 
@@ -185,81 +174,6 @@ class TVDatabase {
       lastUsed: row.lastUsed,
       isValid: row.isValid === 1,
     };
-  }
-
-  /**
-   * Save ThinQ refresh token
-   */
-  saveThinQRefreshToken(refreshToken: string): void {
-    const now = new Date().toISOString();
-    
-    const stmt = this.db.prepare(`
-      INSERT INTO thinq_tokens (id, refresh_token, created_at, updated_at)
-      VALUES (1, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        refresh_token = excluded.refresh_token,
-        updated_at = excluded.updated_at
-    `);
-
-    stmt.run(refreshToken, now, now);
-    console.log(`💾 Saved ThinQ refresh token`);
-  }
-
-  /**
-   * Save ThinQ access token
-   */
-  saveThinQAccessToken(accessToken: string, expiresIn?: number): void {
-    const now = new Date();
-    const expiresAt = expiresIn 
-      ? new Date(now.getTime() + expiresIn * 1000).toISOString()
-      : null;
-    
-    const stmt = this.db.prepare(`
-      UPDATE thinq_tokens
-      SET access_token = ?,
-          token_expires_at = ?,
-          updated_at = ?
-      WHERE id = 1
-    `);
-
-    stmt.run(accessToken, expiresAt, now.toISOString());
-    console.log(`💾 Saved ThinQ access token`);
-  }
-
-  /**
-   * Get ThinQ tokens
-   */
-  getThinQTokens(): { refreshToken: string; accessToken: string | null; expiresAt: string | null } | null {
-    const stmt = this.db.prepare(`
-      SELECT refresh_token as refreshToken, 
-             access_token as accessToken,
-             token_expires_at as expiresAt
-      FROM thinq_tokens
-      WHERE id = 1
-    `);
-
-    const row = stmt.get() as any;
-    if (!row) return null;
-
-    return {
-      refreshToken: row.refreshToken,
-      accessToken: row.accessToken,
-      expiresAt: row.expiresAt,
-    };
-  }
-
-  /**
-   * Check if ThinQ access token is expired
-   */
-  isThinQTokenExpired(): boolean {
-    const tokens = this.getThinQTokens();
-    if (!tokens || !tokens.expiresAt) return true;
-
-    const expiresAt = new Date(tokens.expiresAt);
-    const now = new Date();
-    
-    // Consider expired if less than 5 minutes remaining
-    return expiresAt.getTime() - now.getTime() < 5 * 60 * 1000;
   }
 
   /**

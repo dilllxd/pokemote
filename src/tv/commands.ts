@@ -129,6 +129,7 @@ export class TVCommands {
    */
   getCommonApps() {
     return [
+      {id:"com.webos.app.home", title: "Home", icon: "🏠"},
       { id: "com.webos.app.livetv", title: "Live TV", icon: "📺" },
       { id: "youtube.leanback.v4", title: "YouTube", icon: "▶️" },
       { id: "com.webos.app.hdmi1", title: "HDMI 1", icon: "🔌" },
@@ -150,7 +151,7 @@ export class TVCommands {
       { id: "Disney+", title: "Disney Plus", icon: "🏰" },
       { id: "hulu", title: "Hulu", icon: "📺" },
       { id: "com.webos.app.appletvplus", title: "Apple TV+", icon: "🍎" },
-      { id: "plex", title: "Plex", icon: "▶️" },
+      { id: "cdp-30", title: "Plex", icon: "▶️" },
     ];
   }
 
@@ -298,5 +299,6 @@ export class TVCommands {
       channel.channelNumber?.toString().includes(query)
     );
   }
+
 }
 
