@@ -89,20 +89,116 @@ export class TVCommands {
     });
   }
 
+  // ==================== SEARCH ====================
+  
+  async searchContent(query: string) {
+    try {
+      console.log(`🔍 Searching for: "${query}"`);
+      
+      // Try direct SSAP search endpoint first
+      try {
+        const result = await this.client.request("ssap://com.webos.service.search/search", {
+          query: query
+        });
+        console.log("✅ Search executed via SSAP");
+        return {
+          success: true,
+          message: `Search results for "${query}"`,
+          query,
+          results: result
+        };
+      } catch (ssapErr: any) {
+        console.log("⚠️  SSAP search failed, trying alternative methods...");
+        
+        // Try launching search app with query
+        await this.launchApp("com.webos.app.search", undefined, { query });
+        return {
+          success: true,
+          message: `Search app launched with query "${query}"`,
+          query
+        };
+      }
+    } catch (err: any) {
+      console.error("❌ Search failed:", err.message);
+      throw err;
+    }
+  }
+
+  async searchContentAdvanced(query: string, categories?: string[]) {
+    try {
+      console.log(`🔍 Advanced search for: "${query}"`, categories);
+      
+      const params: any = { query };
+      
+      if (categories && categories.length > 0) {
+        params.categories = categories;
+      }
+
+      // Try direct SSAP search endpoint
+      try {
+        const result = await this.client.request("ssap://com.webos.service.search/search", params);
+        console.log("✅ Search executed via SSAP");
+        return {
+          success: true,
+          message: `Search results for "${query}"`,
+          query,
+          categories,
+          results: result
+        };
+      } catch (ssapErr: any) {
+        console.log("⚠️  SSAP search failed, trying search app...");
+        
+        // Fallback to launching search app
+        await this.launchApp("com.webos.app.search", undefined, params);
+        return {
+          success: true,
+          message: `Search app launched with query "${query}"`,
+          query,
+          categories
+        };
+      }
+    } catch (err: any) {
+      console.error("❌ Search failed:", err.message);
+      throw err;
+    }
+  }
+
   // ==================== APPLICATIONS ====================
   
   async listApps() {
     try {
-      // Try to get all installed apps (requires READ_INSTALLED_APPS permission)
-      const result = await this.client.request("ssap://com.webos.applicationManager/listApps");
-      return result.launchPoints;
-    } catch (err: any) {
-      // Fallback: return common LG TV apps if permission denied
-      if (err.message.includes("401") || err.message.includes("insufficient")) {
-        console.warn("⚠️  Insufficient permissions for listLaunchPoints, returning common apps");
-        return this.getCommonApps();
+      console.log("📱 Requesting apps from TV...");
+      const result = await this.client.request("ssap://com.webos.applicationManager/listLaunchPoints");
+      
+      // Handle different response structures
+      // if (result.apps && Array.isArray(result.apps)) {
+      //   console.log(`✅ Received ${result.apps.length} apps from TV`);
+      //   return result.apps.map((app: any) => ({
+      //     id: app.id,
+      //     title: app.title || app.id,
+      //     icon: app.icon,
+      //     largeIcon: app.largeIcon,
+      //     appType: app.appType,
+      //   }));
+      // }
+      
+      if (result.launchPoints && Array.isArray(result.launchPoints)) {
+        console.log(`✅ Received ${result.launchPoints.length} launch points from TV`);
+        return result.launchPoints.map((app: any) => ({
+          id: app.id,
+          title: app.title || app.id,
+          icon: app.icon,
+          largeIcon: app.largeIcon,
+          appType: app.appType,
+        }));
       }
-      throw err;
+      
+      console.log("⚠️  Unexpected response structure, using fallback");
+      return this.getCommonApps();
+    } catch (err: any) {
+      console.error("❌ Failed to list apps:", err.message);
+      console.log("📋 Using fallback common apps list");
+      return this.getCommonApps();
     }
   }
 
@@ -280,6 +376,10 @@ export class TVCommands {
     return this.client.subscribe("ssap://tv/getCurrentChannel", callback);
   }
 
+  async subscribeMediaState(callback: (data: any) => void) {
+    return this.client.subscribe("ssap://com.webos.media/getForegroundAppInfo", callback);
+  }
+
   // ==================== SEARCH ====================
 
   /**
@@ -294,20 +394,6 @@ export class TVCommands {
     });
   }
 
-  /**
-   * Search for content across apps (if supported by TV)
-   * This may not work on all WebOS versions
-   */
-  async searchContent(query: string) {
-    try {
-      return await this.client.request("ssap://com.webos.service.search/search", {
-        query,
-      });
-    } catch (err) {
-      // Fallback: just open search app with query
-      return this.openSearch(query);
-    }
-  }
 
   /**
    * Search for apps by name

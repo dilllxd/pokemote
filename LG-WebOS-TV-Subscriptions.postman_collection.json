@@ -69,6 +69,26 @@
           "response": []
         },
         {
+          "name": "Subscribe to Media Playback State",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/subscribe/media",
+              "host": ["{{base_url}}"],
+              "path": ["api", "subscribe", "media"]
+            },
+            "description": "Subscribe to real-time media playback state changes.\n\n**What you'll see:**\n- Content starts playing (Netflix, YouTube, etc.)\n- Content pauses\n- Content stops\n- Playback state changes for media apps\n\n**Events:**\n```json\n{\n  \"type\": \"media\",\n  \"foregroundAppInfo\": [\n    {\n      \"playState\": \"playing\",\n      \"appId\": \"netflix\",\n      \"mediaId\": \"content123\"\n    }\n  ],\n  \"timestamp\": \"2025-10-08T12:00:00.000Z\"\n}\n```\n\n**Play States:**\n- `\"playing\"` - Content is actively playing\n- `\"paused\"` - Content is paused\n- `\"unloaded\"` - Content has stopped or app closed\n\n**Try it:**\n1. Click Send (request stays open)\n2. Play/pause/stop content in Netflix, YouTube, or other media apps\n3. Watch play state events appear in real-time!"
+          },
+          "response": []
+        },
+        {
           "name": "Subscribe to ALL Events",
           "request": {
             "method": "GET",

@@ -3,6 +3,7 @@ import dgram from "dgram";
 export interface DiscoveredTV {
   ip: string;
   location: string;
+  name?: string;
 }
 
 /**
@@ -36,16 +37,24 @@ export async function discoverTVs(timeout: number = 5000): Promise<DiscoveredTV[
       
       // Validate it's an LG TV by checking the device description
       try {
-        const response = await fetch(location, { 
-          signal: AbortSignal.timeout(2000) 
+        const response = await fetch(location, {
+          signal: AbortSignal.timeout(2000),
         });
         const text = await response.text();
-        
+
+        // Try to extract friendly name from UPnP device description
+        let friendlyName: string | undefined;
+        const nameMatch = text.match(/<friendlyName>([^<]+)<\/friendlyName>/i);
+        if (nameMatch) {
+          friendlyName = nameMatch[1].trim();
+        }
+
+        // Validate it's an LG TV (keep previous heuristic) and store
         if (text.toLowerCase().includes("lg")) {
-          const url = new URL(location);
           discovered.set(rinfo.address, {
             ip: rinfo.address,
-            location: location,
+            location,
+            name: friendlyName,
           });
         }
       } catch (err) {
@@ -82,4 +91,3 @@ export async function discoverTVs(timeout: number = 5000): Promise<DiscoveredTV[
     });
   });
 }
-

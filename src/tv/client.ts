@@ -59,62 +59,63 @@ const REGISTRATION_MANIFEST = {
       ],
       serial: "2f930e2d2cfe083771f68e4fe7bb07",
     },
-      permissions: [
-        "LAUNCH",
-        "LAUNCH_WEBAPP",
-        "APP_TO_APP",
-        "CLOSE",
-        "TEST_OPEN",
-        "TEST_PROTECTED",
-        "CONTROL_AUDIO",
-        "CONTROL_DISPLAY",
-        "CONTROL_INPUT_JOYSTICK",
-        "CONTROL_INPUT_MEDIA_RECORDING",
-        "CONTROL_INPUT_MEDIA_PLAYBACK",
-        "CONTROL_INPUT_TV",
-        "CONTROL_INPUT_TEXT",
-        "CONTROL_MOUSE_AND_KEYBOARD",
-        "CONTROL_POWER",
-        "READ_APP_STATUS",
-        "READ_CURRENT_CHANNEL",
-        "READ_INPUT_DEVICE_LIST",
-        "READ_NETWORK_STATE",
-        "READ_RUNNING_APPS",
-        "READ_TV_CHANNEL_LIST",
-        "WRITE_NOTIFICATION_TOAST",
-        "READ_POWER_STATE",
-        "READ_COUNTRY_INFO",
-        "READ_SETTINGS",
-        "CONTROL_TV_SCREEN",
-        "CONTROL_TV_STANBY",
-        "CONTROL_FAVORITE_GROUP",
-        "CONTROL_USER_INFO",
-        "CHECK_BLUETOOTH_DEVICE",
-        "CONTROL_BLUETOOTH",
-        "CONTROL_TIMER_INFO",
-        "STB_INTERNAL_CONNECTION",
-        "CONTROL_RECORDING",
-        "READ_RECORDING_STATE",
-        "WRITE_RECORDING_LIST",
-        "READ_RECORDING_LIST",
-        "READ_RECORDING_SCHEDULE",
-        "WRITE_RECORDING_SCHEDULE",
-        "READ_STORAGE_DEVICE_LIST",
-        "READ_TV_PROGRAM_INFO",
-        "CONTROL_BOX_CHANNEL",
-        "READ_TV_ACR_AUTH_TOKEN",
-        "READ_TV_CONTENT_STATE",
-        "READ_TV_CURRENT_TIME",
-        "ADD_LAUNCHER_CHANNEL",
-        "SET_CHANNEL_SKIP",
-        "RELEASE_CHANNEL_SKIP",
-        "CONTROL_CHANNEL_BLOCK",
-        "DELETE_SELECT_CHANNEL",
-        "CONTROL_CHANNEL_GROUP",
-        "SCAN_TV_CHANNELS",
-        "CONTROL_TV_POWER",
-        "CONTROL_WOL",
-      ],
+    permissions: [
+      "LAUNCH",
+      "LAUNCH_WEBAPP",
+      "APP_TO_APP",
+      "CLOSE",
+      "TEST_OPEN",
+      "TEST_PROTECTED",
+      "CONTROL_AUDIO",
+      "CONTROL_DISPLAY",
+      "CONTROL_INPUT_JOYSTICK",
+      "CONTROL_INPUT_MEDIA_RECORDING",
+      "CONTROL_INPUT_MEDIA_PLAYBACK",
+      "CONTROL_INPUT_TV",
+      "CONTROL_INPUT_TEXT",
+      "CONTROL_MOUSE_AND_KEYBOARD",
+      "CONTROL_POWER",
+      "READ_APP_STATUS",
+      "READ_CURRENT_CHANNEL",
+      "READ_INPUT_DEVICE_LIST",
+      "READ_NETWORK_STATE",
+      "READ_RUNNING_APPS",
+      "READ_INSTALLED_APPS",
+      "READ_TV_CHANNEL_LIST",
+      "WRITE_NOTIFICATION_TOAST",
+      "READ_POWER_STATE",
+      "READ_COUNTRY_INFO",
+      "READ_SETTINGS",
+      "CONTROL_TV_SCREEN",
+      "CONTROL_TV_STANBY",
+      "CONTROL_FAVORITE_GROUP",
+      "CONTROL_USER_INFO",
+      "CHECK_BLUETOOTH_DEVICE",
+      "CONTROL_BLUETOOTH",
+      "CONTROL_TIMER_INFO",
+      "STB_INTERNAL_CONNECTION",
+      "CONTROL_RECORDING",
+      "READ_RECORDING_STATE",
+      "WRITE_RECORDING_LIST",
+      "READ_RECORDING_LIST",
+      "READ_RECORDING_SCHEDULE",
+      "WRITE_RECORDING_SCHEDULE",
+      "READ_STORAGE_DEVICE_LIST",
+      "READ_TV_PROGRAM_INFO",
+      "CONTROL_BOX_CHANNEL",
+      "READ_TV_ACR_AUTH_TOKEN",
+      "READ_TV_CONTENT_STATE",
+      "READ_TV_CURRENT_TIME",
+      "ADD_LAUNCHER_CHANNEL",
+      "SET_CHANNEL_SKIP",
+      "RELEASE_CHANNEL_SKIP",
+      "CONTROL_CHANNEL_BLOCK",
+      "DELETE_SELECT_CHANNEL",
+      "CONTROL_CHANNEL_GROUP",
+      "SCAN_TV_CHANNELS",
+      "CONTROL_TV_POWER",
+      "CONTROL_WOL",
+    ],
     signatures: [
       {
         signatureVersion: 1,
@@ -386,7 +387,7 @@ export class LGTVClient {
       type: "request",
       id: randomUUID(),
       uri,
-      payload,
+      payload: payload || {},
     };
 
     return new Promise((resolve, reject) => {
@@ -412,6 +413,46 @@ export class LGTVClient {
         }
       }, 10000);
     });
+  }
+
+  /**
+   * Call Luna Service API using the createAlert hack
+   * This exploits the alert dialog's onClick/onclose handlers to trigger Luna services
+   */
+  async callLunaService(uri: string, params: any): Promise<any> {
+    if (!this.ws) throw new Error("Not connected");
+
+    console.log(`🌙 Calling Luna service: ${uri}`);
+
+    // Step 1: Create alert with Luna service call in onclose
+    const alertPayload = {
+      message: "Processing...",
+      buttons: [{
+        label: "OK",
+        onClick: uri,
+        params: params
+      }],
+      onclose: {
+        uri: uri,
+        params: params
+      }
+    };
+
+    const alertResponse = await this.request("ssap://system.notifications/createAlert", alertPayload);
+    const alertId = alertResponse.alertId;
+
+    if (!alertId) {
+      throw new Error("Failed to create alert for Luna service call");
+    }
+
+    // Step 2: Immediately close the alert to trigger the onclose handler
+    await this.request("ssap://system.notifications/closeAlert", { alertId });
+
+    console.log(`✅ Luna service triggered: ${uri}`);
+    
+    // Note: Luna service results are not directly returned
+    // The TV executes the service internally
+    return { success: true, triggered: uri };
   }
 
   /**

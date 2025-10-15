@@ -32,6 +32,7 @@ let currentTVIP: string | null = null;
 const pendingPairings = new Map<string, {
   client: LGTVClient;
   secure: boolean;
+  name?: string;
 }>();
 
 // Active subscriptions for SSE clients
@@ -161,9 +162,12 @@ app.get("/", (req: Request, res: Response) => {
         set: "POST /api/inputs/set",
       },
       remote: "POST /api/remote (body: {action: 'up'|'down'|'left'|'right'|'ok'|'back'|'home'})",
+      search: {
+        content: "POST /api/search (body: {query: 'search term', categories?: ['movie', 'tv']})"
+      },
       pairing: {
-        connect: "POST /api/connect (body: {ip, secure?}) - Displays PIN on TV",
-        pair: "POST /api/pair (body: {pin}) - Completes pairing with PIN",
+        connect: "POST /api/connect (body: {ip, secure?, name?}) - Displays PIN on TV",
+        pair: "POST /api/pair (body: {pin, ip?, name?}) - Completes pairing with PIN",
       },
       credentials: {
         list: "GET /api/credentials",
@@ -174,6 +178,7 @@ app.get("/", (req: Request, res: Response) => {
         volume: "GET /api/subscribe/volume",
         channel: "GET /api/subscribe/channel",
         app: "GET /api/subscribe/app",
+        media: "GET /api/subscribe/media",
         all: "GET /api/subscribe/all",
         list: "GET /api/subscriptions",
       },
@@ -202,7 +207,7 @@ app.get("/api/discover", async (req: Request, res: Response) => {
 app.post("/api/connect", async (req: Request, res: Response) => {
   try {
     const body = await req.body;
-    const { ip, secure, force = false } = body;
+    const { ip, secure, name, force = false } = body;
 
     if (!ip) {
       return res.status(400).json({ success: false, error: "IP address required" });
@@ -260,6 +265,16 @@ app.post("/api/connect", async (req: Request, res: Response) => {
       throw new Error(`Failed to connect to TV. Tried both secure and non-secure modes. Last error: ${connectionError?.message}`);
     }
 
+    // Attempt to resolve friendly name if not provided
+    let friendlyName: string | undefined = name;
+    if (!friendlyName) {
+      try {
+        const tvs = await discoverTVs(1500);
+        const match = tvs.find(t => t.ip === ip);
+        if (match?.name) friendlyName = match.name;
+      } catch {}
+    }
+
     // Initiate PIN-based pairing
     const result = await tvClient.initiateRegistration();
     
@@ -267,6 +282,7 @@ app.post("/api/connect", async (req: Request, res: Response) => {
       pendingPairings.set(ip, {
         client: tvClient,
         secure: useSecure,
+        name: friendlyName,
       });
       currentTVIP = ip;
       
@@ -283,7 +299,7 @@ app.post("/api/connect", async (req: Request, res: Response) => {
     // Fallback for non-PIN pairing (PROMPT mode)
     const newClientKey = tvClient.clientKey;
     if (newClientKey) {
-      tvDatabase.saveCredentials(ip, newClientKey, useSecure);
+      tvDatabase.saveCredentials(ip, newClientKey, useSecure, friendlyName);
       tvCommands = new TVCommands(tvClient);
       currentTVIP = ip;
       
@@ -307,7 +323,7 @@ app.post("/api/connect", async (req: Request, res: Response) => {
 
 app.post("/api/pair", async (req: Request, res: Response) => {
   try {
-    const { pin, ip } = await req.body;
+    const { pin, ip, name } = await req.body;
 
     if (!pin) {
       return res.status(400).json({ 
@@ -337,7 +353,7 @@ app.post("/api/pair", async (req: Request, res: Response) => {
 
     const clientKey = await pending.client.completePairing(pin);
 
-    tvDatabase.saveCredentials(targetIP, clientKey, pending.secure);
+    tvDatabase.saveCredentials(targetIP, clientKey, pending.secure, pending.name ?? name);
     tvClient = pending.client;
     tvCommands = new TVCommands(tvClient);
     currentTVIP = targetIP;
@@ -404,6 +420,7 @@ app.get("/api/credentials", (req: Request, res: Response) => {
     count: credentials.length,
     credentials: credentials.map(c => ({
       ip: c.ip,
+      name: c.name,
       secure: c.secure,
       isValid: c.isValid,
       createdAt: c.createdAt,
@@ -744,6 +761,32 @@ app.post("/api/inputs/set", requireConnection, async (req: Request, res: Respons
 
 // ==================== REMOTE NAVIGATION ====================
 
+// ==================== SEARCH ====================
+
+app.post("/api/search", requireConnection, async (req: Request, res: Response) => {
+  try {
+    const { query, categories } = await req.body;
+    
+    if (!query) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "query is required",
+        example: '{"query": "Stranger Things", "categories": ["movie", "tv"]}'
+      });
+    }
+
+    const result = categories 
+      ? await tvCommands!.searchContentAdvanced(query, categories)
+      : await tvCommands!.searchContent(query);
+
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== REMOTE CONTROL ====================
+
 app.post("/api/remote", requireConnection, async (req: Request, res: Response) => {
   try {
     const { action } = await req.body;
@@ -931,6 +974,51 @@ app.get("/api/subscribe/app", async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/subscribe/media - Subscribe to media playback state changes via Server-Sent Events
+ */
+app.get("/api/subscribe/media", async (req: Request, res: Response) => {
+  try {
+    if (!tvClient) {
+      return res.status(400).json({ success: false, error: "Not connected to TV" });
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const clientId = Math.random().toString(36).substring(7);
+    sseClients.set(clientId, res);
+
+    const subscriptionId = await tvClient.subscribe('ssap://com.webos.media/getForegroundAppInfo', (data) => {
+      const event = {
+        type: 'media',
+        foregroundAppInfo: data.foregroundAppInfo || [],
+        timestamp: new Date().toISOString()
+      };
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    });
+
+    activeSubscriptions.set(subscriptionId, 'ssap://com.webos.media/getForegroundAppInfo');
+    console.log(`📡 Client ${clientId} subscribed to media state changes`);
+
+    res.write(`data: ${JSON.stringify({ type: 'connected', subscription: 'media' })}\n\n`);
+
+    req.on('close', () => {
+      sseClients.delete(clientId);
+      if (tvClient && subscriptionId) {
+        tvClient.unsubscribe(subscriptionId, 'ssap://com.webos.media/getForegroundAppInfo');
+        activeSubscriptions.delete(subscriptionId);
+      }
+      console.log(`📡 Client ${clientId} disconnected from media subscription`);
+    });
+
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
  * GET /api/subscribe/all - Subscribe to all events via Server-Sent Events
  */
 app.get("/api/subscribe/all", async (req: Request, res: Response) => {
@@ -966,6 +1054,12 @@ app.get("/api/subscribe/all", async (req: Request, res: Response) => {
       res.write(`data: ${JSON.stringify({ type: 'app', ...data, timestamp: new Date().toISOString() })}\n\n`);
     });
     subscriptions.push({ id: appId, uri: 'ssap://com.webos.applicationManager/getForegroundAppInfo' });
+
+    // Subscribe to media
+    const mediaId = await tvClient.subscribe('ssap://com.webos.media/getForegroundAppInfo', (data) => {
+      res.write(`data: ${JSON.stringify({ type: 'media', foregroundAppInfo: data.foregroundAppInfo || [], timestamp: new Date().toISOString() })}\n\n`);
+    });
+    subscriptions.push({ id: mediaId, uri: 'ssap://com.webos.media/getForegroundAppInfo' });
 
     console.log(`📡 Client ${clientId} subscribed to ALL events`);
     res.write(`data: ${JSON.stringify({ type: 'connected', subscription: 'all', subscriptions: subscriptions.length })}\n\n`);
@@ -1009,4 +1103,3 @@ console.log(`🚀 LG WebOS TV API Server starting on port ${port}...`);
 app.listen(port, () => {
   console.log(`Started development server: http://localhost:${port}`);
 });
-

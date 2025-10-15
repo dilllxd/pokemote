@@ -9,6 +9,7 @@ export interface TVCredential {
   ip: string;
   clientKey: string;
   secure: boolean;
+  name?: string;
   createdAt: string;
   lastUsed: string;
   isValid: boolean;
@@ -32,11 +33,23 @@ class TVDatabase {
         ip TEXT PRIMARY KEY,
         client_key TEXT NOT NULL,
         secure INTEGER NOT NULL DEFAULT 1,
+        name TEXT,
         created_at TEXT NOT NULL,
         last_used TEXT NOT NULL,
         is_valid INTEGER NOT NULL DEFAULT 1
       )
     `);
+
+    // Migration: ensure 'name' column exists for older databases
+    try {
+      const cols = this.db.prepare("PRAGMA table_info(tv_credentials)").all() as any[];
+      const hasName = cols.some((c) => c.name === "name");
+      if (!hasName) {
+        this.db.exec("ALTER TABLE tv_credentials ADD COLUMN name TEXT");
+      }
+    } catch {
+      // ignore migration errors
+    }
 
     console.log("✅ Database initialized");
   }
@@ -44,20 +57,21 @@ class TVDatabase {
   /**
    * Save or update TV credentials
    */
-  saveCredentials(ip: string, clientKey: string, secure: boolean = true): void {
+  saveCredentials(ip: string, clientKey: string, secure: boolean = true, name?: string): void {
     const now = new Date().toISOString();
     
     const stmt = this.db.prepare(`
-      INSERT INTO tv_credentials (ip, client_key, secure, created_at, last_used, is_valid)
-      VALUES (?, ?, ?, ?, ?, 1)
+      INSERT INTO tv_credentials (ip, client_key, secure, name, created_at, last_used, is_valid)
+      VALUES (?, ?, ?, ?, ?, ?, 1)
       ON CONFLICT(ip) DO UPDATE SET
         client_key = excluded.client_key,
         secure = excluded.secure,
         last_used = excluded.last_used,
-        is_valid = 1
+        is_valid = 1,
+        name = COALESCE(excluded.name, name)
     `);
 
-    stmt.run(ip, clientKey, secure ? 1 : 0, now, now);
+    stmt.run(ip, clientKey, secure ? 1 : 0, name ?? null, now, now);
     console.log(`💾 Saved credentials for ${ip}`);
   }
 
@@ -66,7 +80,7 @@ class TVDatabase {
    */
   getCredentials(ip: string): TVCredential | null {
     const stmt = this.db.prepare(`
-      SELECT ip, client_key as clientKey, secure, created_at as createdAt, 
+      SELECT ip, client_key as clientKey, secure, name, created_at as createdAt, 
              last_used as lastUsed, is_valid as isValid
       FROM tv_credentials
       WHERE ip = ?
@@ -82,6 +96,7 @@ class TVDatabase {
       ip: row.ip,
       clientKey: row.clientKey,
       secure: row.secure === 1,
+      name: row.name || undefined,
       createdAt: row.createdAt,
       lastUsed: row.lastUsed,
       isValid: row.isValid === 1,
@@ -93,7 +108,7 @@ class TVDatabase {
    */
   getAllCredentials(): TVCredential[] {
     const stmt = this.db.prepare(`
-      SELECT ip, client_key as clientKey, secure, created_at as createdAt, 
+      SELECT ip, client_key as clientKey, secure, name, created_at as createdAt, 
              last_used as lastUsed, is_valid as isValid
       FROM tv_credentials
       ORDER BY last_used DESC
@@ -104,6 +119,7 @@ class TVDatabase {
       ip: row.ip,
       clientKey: row.clientKey,
       secure: row.secure === 1,
+       name: row.name || undefined,
       createdAt: row.createdAt,
       lastUsed: row.lastUsed,
       isValid: row.isValid === 1,
@@ -155,7 +171,7 @@ class TVDatabase {
    */
   getMostRecentTV(): TVCredential | null {
     const stmt = this.db.prepare(`
-      SELECT ip, client_key as clientKey, secure, created_at as createdAt, 
+      SELECT ip, client_key as clientKey, secure, name, created_at as createdAt, 
              last_used as lastUsed, is_valid as isValid
       FROM tv_credentials
       WHERE is_valid = 1
@@ -170,6 +186,7 @@ class TVDatabase {
       ip: row.ip,
       clientKey: row.clientKey,
       secure: row.secure === 1,
+      name: row.name || undefined,
       createdAt: row.createdAt,
       lastUsed: row.lastUsed,
       isValid: row.isValid === 1,
