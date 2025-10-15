@@ -243,6 +243,10 @@ export class LGTVClient {
           this.pendingRequests.delete(message.id);
           this.pendingRegistrationId = null;
           console.log("✅ Successfully paired with TV");
+          // If TV immediately returns registered (e.g. stored client-key), resolve
+          try {
+            resolve({ requiresPIN: false });
+          } catch {}
         } else if (msg.type === "error") {
           this.pendingRequests.delete(message.id);
           this.pendingRegistrationId = null;
@@ -606,4 +610,3 @@ export class LGTVClient {
     }
   }
 }
-

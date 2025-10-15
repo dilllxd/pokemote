@@ -65,6 +65,10 @@ export class TVCommands {
     return this.client.request("ssap://system/turnOff");
   }
 
+  async powerOn() {
+    return this.client.request("ssap://system/turnOn");
+  }
+
   async screenOff() {
     return this.client.request("ssap://com.webos.service.tvpower/power/turnOffScreen", {
       standbyMode: "active",
