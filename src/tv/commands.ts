@@ -59,6 +59,56 @@ export class TVCommands {
     return this.client.request("ssap://media.controls/fastForward");
   }
 
+  async getMediaStatus() {
+    try {
+      // Get foreground app info first
+      let appId = null;
+      try {
+        appId = await this.getCurrentApp();
+      } catch {}
+
+      // Try getting media metadata (works for video/audio apps)
+      try {
+        const metadata = await this.client.request("ssap://media.viewer/getMediaMetaData");
+        return {
+          playing: true,
+          appId,
+          mediaType: metadata.mediaType,
+          title: metadata.title,
+          duration: metadata.duration,
+          position: metadata.position,
+          metadata,
+        };
+      } catch {
+        // If media metadata fails, check foreground media app info
+        try {
+          const appInfo = await this.client.request("ssap://com.webos.media/getForegroundAppInfo");
+          return {
+            playing: appInfo.foregroundAppInfo?.length > 0,
+            appId,
+            foregroundAppInfo: appInfo.foregroundAppInfo || [],
+          };
+        } catch {
+          return {
+            playing: false,
+            appId,
+            error: "Unable to determine media status"
+          };
+        }
+      }
+    } catch (err: any) {
+      return {
+        playing: false,
+        appId: null,
+        error: err.message
+      };
+    }
+  }
+
+  async getForegroundMediaInfo() {
+    return this.client.request("ssap://com.webos.media/getForegroundAppInfo");
+  }
+
   // ==================== SYSTEM CONTROL ====================
   
   async powerOff() {

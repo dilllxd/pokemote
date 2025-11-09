@@ -1,13 +1,16 @@
 {
-  "name": "lgtv-api",
+  "name": "pokemote",
   "version": "1.0.0",
-  "description": "LG WebOS TV Control API Server with Express and Node.js",
+  "description": "A MCP server to control my LG WebOS TV (more compatability soon).",
   "type": "module",
   "scripts": {
     "dev": "node --watch --import tsx src/index.ts",
-    "start": "node --import tsx src/index.ts"
+    "start": "node --import tsx src/index.ts",
+    "mcp": "node --import tsx src/mcp-index.ts",
+    "mcp:dev": "node --watch --import tsx src/mcp-index.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
     "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",

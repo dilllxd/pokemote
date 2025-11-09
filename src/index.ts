@@ -24,12 +24,12 @@ app.use((req, res, next) => {
 });
 
 // Global TV client instance and state tracking by IP
-let tvClient: LGTVClient | null = null;
-let tvCommands: TVCommands | null = null;
-let currentTVIP: string | null = null;
+export let tvClient: LGTVClient | null = null;
+export let tvCommands: TVCommands | null = null;
+export let currentTVIP: string | null = null;
 
 // Track pending pairing state by IP
-const pendingPairings = new Map<string, {
+export const pendingPairings = new Map<string, {
   client: LGTVClient;
   secure: boolean;
   name?: string;
@@ -42,7 +42,7 @@ const activeSubscriptions = new Map<string, string>(); // subscriptionId -> uri
 /**
  * Auto-reconnect to TV using stored credentials
  */
-async function autoReconnect(ip: string): Promise<boolean> {
+export async function autoReconnect(ip: string): Promise<boolean> {
   try {
     const credentials = tvDatabase.getCredentials(ip);
     if (!credentials || !credentials.isValid) {
@@ -82,7 +82,7 @@ async function autoReconnect(ip: string): Promise<boolean> {
 /**
  * Ensure TV connection (auto-reconnect if needed)
  */
-async function ensureConnection(): Promise<boolean> {
+export async function ensureConnection(): Promise<boolean> {
   if (tvClient && tvCommands) {
     return true;
   }
@@ -94,6 +94,15 @@ async function ensureConnection(): Promise<boolean> {
   }
 
   return false;
+}
+
+/**
+ * Set TV client and commands (used by MCP server)
+ */
+export function setTVClient(client: LGTVClient | null, commands: TVCommands | null, ip: string | null) {
+  tvClient = client;
+  tvCommands = commands;
+  currentTVIP = ip;
 }
 
 /**
@@ -136,6 +145,8 @@ app.get("/", (req: Request, res: Response) => {
         stop: "POST /api/media/stop",
         rewind: "POST /api/media/rewind",
         fastForward: "POST /api/media/fastforward",
+        status: "GET /api/media/status",
+        info: "GET /api/media/info",
       },
       system: {
         powerOff: "POST /api/system/power-off",
@@ -586,6 +597,24 @@ app.post("/api/media/fastforward", requireConnection, async (req: Request, res: 
   try {
     await tvCommands!.fastForward();
     return res.json({ success: true, message: "Fast forwarding" });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/media/status", requireConnection, async (req: Request, res: Response) => {
+  try {
+    const status = await tvCommands!.getMediaStatus();
+    return res.json({ success: true, status });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/media/info", requireConnection, async (req: Request, res: Response) => {
+  try {
+    const info = await tvCommands!.getForegroundMediaInfo();
+    return res.json({ success: true, info });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -1096,10 +1125,31 @@ app.get("/api/subscriptions", (req: Request, res: Response) => {
   });
 });
 
-// Start server
-const port = process.env.PORT || 3000;
-console.log(`🚀 LG WebOS TV API Server starting on port ${port}...`);
+// Export the Express app for use by other modules
+export { app };
 
-app.listen(port, () => {
-  console.log(`Started development server: http://localhost:${port}`);
-});
+// Helper function to check if this module is the main entry point
+function isMainModule(): boolean {
+  // For tsx/ts-node, check if this is the entry module
+  if (process.env.npm_lifecycle_event) {
+    // If run via npm script, check which script is running
+    const shouldStart = process.env.npm_lifecycle_event === 'dev' || process.env.npm_lifecycle_event === 'start';
+    console.log(`[DEBUG] npm_lifecycle_event: ${process.env.npm_lifecycle_event}, shouldStart: ${shouldStart}`);
+    return shouldStart;
+  }
+  // Fallback: check if import.meta.url matches the entry point
+  const isMain = import.meta.url === `file://${process.argv[1]}` || 
+         import.meta.url.endsWith(process.argv[1]);
+  console.log(`[DEBUG] No npm_lifecycle_event, isMain: ${isMain}, import.meta.url: ${import.meta.url}, argv[1]: ${process.argv[1]}`);
+  return isMain;
+}
+
+// Start server only if this file is run directly (not imported)
+if (isMainModule()) {
+  const port = process.env.PORT || 3000;
+  console.log(`🚀 LG WebOS TV API Server starting on port ${port}...`);
+
+  app.listen(port, () => {
+    console.log(`Started development server: http://localhost:${port}`);
+  });
+}

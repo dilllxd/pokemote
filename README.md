@@ -12,6 +12,55 @@ A modern REST API server to control LG WebOS Smart TVs, built with Node.js and E
 - ⚡ Built with Express for reliability
 - 📝 TypeScript for type safety
 
+## MCP Server (for AI Agents)
+
+This repo also includes an MCP server over HTTP exposing TV tools for AI agents (Claude Desktop, MCP-compatible runtimes).
+
+- Start server (HTTP):
+  - `MCP_HTTP_PORT=3333 npm run mcp`
+  - Endpoint: `POST http://localhost:3333/mcp`
+- Connect from MCP client (example config):
+  - `{ "mcpServers": { "lgtv": { "url": "http://localhost:3333/mcp" } } }`
+- Tools:
+  - `tv.discover` — find TVs on the network
+  - `tv.connect` — connect and initiate pairing (PIN on TV)
+  - `tv.pair` — complete pairing with `{ pin }`
+  - `tv.list_saved_tvs` — list stored TVs/credentials
+  - `tv.status` and `tv.disconnect`
+  - `tv.power` — `{ action: 'on'|'off' }`
+  - `tv.volume_up`, `tv.volume_down`, `tv.set_volume`, `tv.get_volume`
+  - `tv.remote` — `{ action: 'up'|'down'|'left'|'right'|'ok'|'back'|'home' }`
+  - `tv.list_apps`, `tv.open_app` — `{ appId, contentId?, params? }`
+  - `tv.media` — `{ action: 'play'|'pause'|'stop'|'rewind'|'fastForward' }`
+
+Setup:
+
+1) Install deps including the MCP SDK:
+
+```bash
+npm install
+npm install @modelcontextprotocol/sdk
+```
+
+2) Run the MCP server (HTTP):
+
+```bash
+MCP_HTTP_PORT=3333 npm run mcp
+```
+
+3) In your MCP client config, point to the URL `http://localhost:3333/mcp`.
+
+Notes:
+- Power on may require Wake-on-LAN on some TVs; `tv.power { action: 'on' }` works when the TV is reachable in standby.
+- The server uses the same SQLite credential store as the REST API for seamless reconnects.
+- To expose your MCP server remotely via ngrok:
+  - `ngrok http http://localhost:3333`
+  - Use the resulting `https://xxxxx.ngrok.app/mcp` URL in your client.
+  - For stricter security set:
+    - `MCP_DNS_PROTECT=1`
+    - `MCP_ALLOWED_HOSTS=localhost,127.0.0.1,xxxxx.ngrok.app`
+    - `MCP_ALLOWED_ORIGINS=https://xxxxx.ngrok.app`
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org) v18+ installed
@@ -434,4 +483,3 @@ MIT
 ## Credits
 
 Based on the protocol analysis of [PyWebOSTV](https://github.com/supersaiyanmode/PyWebOSTV)
-
