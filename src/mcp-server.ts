@@ -13,6 +13,14 @@ import {
   ensureConnection,
   setTVClient,
 } from "./index.js";
+import {
+  createAuthConfig,
+  createAuthMiddleware,
+  validateApiKey,
+  validateApiKeyFormat,
+  extractApiKeyFromHeader,
+  AuthConfig,
+} from "./auth.js";
 
 interface MCPRequest {
   jsonrpc: string;
@@ -32,7 +40,17 @@ interface MCPResponse {
 }
 
 export class PokemoteMCPServer {
-  constructor() {}
+  private authConfig: AuthConfig;
+
+  constructor() {
+    this.authConfig = createAuthConfig();
+
+    if (this.authConfig.enabled) {
+      console.log(`🔐 Authentication enabled with ${this.authConfig.apiKeys.length} API key(s)`);
+    } else {
+      console.log('⚠️  Authentication disabled - server running in open mode');
+    }
+  }
 
   /**
    * Get list of all available tools
@@ -1632,19 +1650,38 @@ export class PokemoteMCPServer {
     app.use(cors());
     app.use(express.json());
 
-    // Health check endpoint
+    // Create authentication middleware
+    const authMiddleware = createAuthMiddleware(this.authConfig);
+
+    // Health check endpoint (no auth required)
     app.get('/health', (req, res) => {
-      res.json({ 
-        status: 'ok', 
+      res.json({
+        status: 'ok',
         message: 'Pokemote MCP Server is running',
         connected: !!tvClient,
         currentTV: currentTVIP,
+        auth: {
+          enabled: this.authConfig.enabled,
+          requiresApiKey: this.authConfig.enabled,
+        },
       });
     });
 
-    // MCP JSON-RPC endpoint
-    app.post('/mcp', async (req, res) => {
-      console.log('MCP POST request received');
+    // Auth status endpoint (no auth required)
+    app.get('/auth/status', (req, res) => {
+      res.json({
+        enabled: this.authConfig.enabled,
+        requiresApiKey: this.authConfig.enabled,
+        message: this.authConfig.enabled
+          ? 'API key required. Use Authorization header with "Bearer sk-xxx" format.'
+          : 'Authentication disabled - open access mode',
+      });
+    });
+
+    
+    // MCP JSON-RPC endpoint (auth required if enabled)
+    app.post('/mcp', authMiddleware, async (req, res) => {
+      console.log(`MCP POST request received (API key: ${req.apiKey?.slice(0, 10)}...)`);
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');

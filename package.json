@@ -7,7 +7,14 @@
     "dev": "node --watch --import tsx src/index.ts",
     "start": "node --import tsx src/index.ts",
     "mcp": "node --import tsx src/mcp-index.ts",
-    "mcp:dev": "node --watch --import tsx src/mcp-index.ts"
+    "mcp:dev": "node --watch --import tsx src/mcp-index.ts",
+    "docker:build": "docker build -t pokemote-mcp .",
+    "docker:run": "docker run -p 8432:3333 -p 8567:3000 --env-file .env pokemote-mcp",
+    "docker:dev": "docker-compose up --build",
+    "docker:prod": "docker-compose --profile production up --build -d",
+    "docker:stop": "docker-compose down",
+    "docker:logs": "docker-compose logs -f pokemote-mcp",
+    "docker:clean": "docker-compose down -v --remove-orphans && docker image prune -f"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",

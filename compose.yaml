@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  pokemote:
+    build: .
+    container_name: pokemote
+    network_mode: host
+    environment:
+      NODE_ENV: "production"
+      MCP_PORT: "8432"
+      PORT: "8567"
+      MCP_AUTH_ENABLED: "true"
+      MCP_API_KEYS: "sk-your-api-key-here,sk-another-key-here"
+      TZ: "UTC"
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs  # Optional: for additional config files
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8432/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add a companion service like a database or cache
+  # redis:
+  #   image: redis:alpine
+  #   container_name: pokemote-redis
+  #   network_mode: host
+  #   command: redis-server --port 6379
+  #   volumes:
+  #     - ./data/redis:/data
+  #   restart: unless-stopped

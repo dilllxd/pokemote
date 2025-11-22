@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  pokemote-mcp:
+    build: .
+    container_name: pokemote-mcp
+    restart: unless-stopped
+    ports:
+      - "8432:3333"  # MCP server port (host:container)
+      - "8567:3000"  # REST API port (host:container, if needed)
+    environment:
+      - NODE_ENV=production
+      - MCP_PORT=3333
+      - PORT=3000
+      # Authentication settings
+      - MCP_AUTH_ENABLED=true
+      # Set your API keys here (comma-separated for multiple keys)
+      - MCP_API_KEYS=sk-your-api-key-here,sk-another-key-here
+    volumes:
+      - ./data:/app/data  # Persist SQLite database
+    networks:
+      - pokemote-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Run with reverse proxy (Nginx) for production
+  nginx:
+    image: nginx:alpine
+    container_name: pokemote-nginx
+    restart: unless-stopped
+    ports:
+      - "8480:80"
+      - "8443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro  # SSL certificates if using HTTPS
+    depends_on:
+      - pokemote-mcp
+    networks:
+      - pokemote-network
+    profiles:
+      - production
+
+networks:
+  pokemote-network:
+    driver: bridge
+
+volumes:
+  pokemote-data:
