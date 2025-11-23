@@ -19,8 +19,12 @@ import {
   validateApiKey,
   validateApiKeyFormat,
   extractApiKeyFromHeader,
-  AuthConfig,
 } from "./auth.js";
+
+interface AuthConfig {
+  enabled: boolean;
+  apiKeys: string[];
+}
 
 interface MCPRequest {
   jsonrpc: string;
@@ -1766,11 +1770,12 @@ export class PokemoteMCPServer {
       }
     });
 
-    app.listen(port, () => {
-      console.log(`🚀 Pokemote MCP Server running on http://localhost:${port}`);
-      console.log(`📡 MCP endpoint: http://localhost:${port}/mcp`);
-      console.log(`❤️  Health check: http://localhost:${port}/health`);
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`🚀 Pokemote MCP Server running on http://0.0.0.0:${port}`);
+      console.log(`📡 MCP endpoint: http://0.0.0.0:${port}/mcp`);
+      console.log(`❤️  Health check: http://0.0.0.0:${port}/health`);
       console.log(`📺 TV Status: ${tvClient ? `Connected to ${currentTVIP}` : 'Not connected'}`);
+      console.log(`🌐 External access: http://192.168.1.69:${port}`);
     });
   }
 }

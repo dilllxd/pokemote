@@ -10,7 +10,7 @@ services:
       MCP_PORT: "8432"
       PORT: "8567"
       MCP_AUTH_ENABLED: "true"
-      MCP_API_KEYS: "sk-your-api-key-here,sk-another-key-here"
+      MCP_API_KEYS: "sk-key"
       TZ: "UTC"
     volumes:
       - ./data:/app/data
